@@ -101,7 +101,11 @@ class SolverWrapper(object):
             self.solver.step(1)
             timer.toc()
             if self.solver.iter % (10 * self.solver_param.display) == 0:
-                print 'speed: {:.3f}s / iter'.format(timer.average_time)
+                rest_time = timer.average_time * (max_iters - self.solver.iter)
+                h = rest_time / 3600
+                m = (rest_time % 3600) / 60
+                print '\nspeed: {:.3f}s / iter; {}h {}m to go; {} left\n'.format(timer.average_time, int(h), int(m),
+                                                                                 max_iters - self.solver.iter)
 
             if self.solver.iter % cfg.TRAIN.SNAPSHOT_ITERS == 0:
                 last_snapshot_iter = self.solver.iter
