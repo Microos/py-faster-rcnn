@@ -100,7 +100,7 @@ class SolverWrapper(object):
             timer.tic()
             self.solver.step(1)
             timer.toc()
-            if self.solver.iter % (10 * self.solver_param.display) == 0:
+            if self.solver.iter % (1 * self.solver_param.display) == 0:
                 rest_time = timer.average_time * (max_iters - self.solver.iter)
                 h = rest_time / 3600
                 m = (rest_time % 3600) / 60

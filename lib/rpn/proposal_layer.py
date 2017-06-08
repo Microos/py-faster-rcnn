@@ -25,7 +25,7 @@ class ProposalLayer(caffe.Layer):
         # parse the layer parameter string, which must be valid YAML
         try:
         	layer_params = yaml.load(self.param_str_)
-		except:
+        except:
 			layer_params = yaml.load(self.param_str)
 
         self._feat_stride = layer_params['feat_stride']
@@ -65,10 +65,10 @@ class ProposalLayer(caffe.Layer):
             'Only single item batches are supported'
 
         cfg_key = str(self.phase) # either 'TRAIN' or 'TEST'
-		try:
-			cfg[cfg_key]
-		except:
-			cfg_key = 'TRAIN' if self.phase == 0 else 'TEST'
+        try:
+            cfg[cfg_key]
+        except:
+            cfg_key = 'TRAIN' if self.phase == 0 else 'TEST'
 
         pre_nms_topN  = cfg[cfg_key].RPN_PRE_NMS_TOP_N
         post_nms_topN = cfg[cfg_key].RPN_POST_NMS_TOP_N

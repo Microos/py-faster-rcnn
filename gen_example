@@ -1,0 +1,1 @@
+python ./py-faster-rcnn-data-interface-generator/generate.py --froot /home/ylxie/Space/work/py-faster-rcnn --cls face --dvkt /home/ylxie/Space/work/py-faster-rcnn/data/voc_wider --idname

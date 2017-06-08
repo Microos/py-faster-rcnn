@@ -13,6 +13,14 @@ from datasets.pascal_voc import pascal_voc
 from datasets.coco import coco
 import numpy as np
 
+#Set up wider
+from datasets.wider import wider
+wider_devkit_path = '/home/ylxie/Space/work/py-faster-rcnn/data/voc_wider'
+for split in ['train', 'test']:
+    name = '{}_{}'.format('wider', split)
+    __sets[name] = (lambda split=split: wider(split, wider_devkit_path))
+
+
 # Set up voc_<year>_<split> using selective search "fast" mode
 for year in ['2007', '2012']:
     for split in ['train', 'val', 'trainval', 'test']:

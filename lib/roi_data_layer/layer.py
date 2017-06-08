@@ -85,9 +85,9 @@ class RoIDataLayer(caffe.Layer):
 
         # parse the layer parameter string, which must be valid YAML
         try:
-        	layer_params = yaml.load(self.param_str_)
-		except:
-			layer_params = yaml.load(self.param_str)
+            layer_params = yaml.load(self.param_str_)
+        except:
+            layer_params = yaml.load(self.param_str)
 
         self._num_classes = layer_params['num_classes']
 

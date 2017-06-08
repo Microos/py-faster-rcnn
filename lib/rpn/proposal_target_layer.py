@@ -23,8 +23,8 @@ class ProposalTargetLayer(caffe.Layer):
 
     def setup(self, bottom, top):
         try:
-        	layer_params = yaml.load(self.param_str_)
-		except:
+            layer_params = yaml.load(self.param_str_)
+        except:
 			layer_params = yaml.load(self.param_str)
         self._num_classes = layer_params['num_classes']
 
@@ -124,10 +124,11 @@ def _get_bbox_regression_labels(bbox_target_data, num_classes):
     bbox_inside_weights = np.zeros(bbox_targets.shape, dtype=np.float32)
     inds = np.where(clss > 0)[0]
     for ind in inds:
+        ins = ind.astype(np.int)
         cls = clss[ind]
         start = 4 * cls
         end = start + 4
-        bbox_targets[ind, start:end] = bbox_target_data[ind, 1:]
+        bbox_targets[ind, start:end] = bbox_target_data[ind.astype(int), 1:]
         bbox_inside_weights[ind, start:end] = cfg.TRAIN.BBOX_INSIDE_WEIGHTS
     return bbox_targets, bbox_inside_weights
 

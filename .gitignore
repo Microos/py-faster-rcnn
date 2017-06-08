@@ -1,4 +1,7 @@
 .DS_Store
+data/voc_wider
+data/imagenet_models
+data/cache
 *.pyc
 .ipynb_checkpoints
 lib/build
