@@ -1,6 +1,6 @@
 [submodule "caffe-fast-rcnn"]
 	path = caffe-fast-rcnn
-	url = https://github.com/rbgirshick/caffe-fast-rcnn.git
+	url = https://github.com/rbgirshick/caffe-fast-rcnn
 	branch = fast-rcnn
 [submodule "py-faster-rcnn-data-interface-generator"]
 	path = py-faster-rcnn-data-interface-generator
