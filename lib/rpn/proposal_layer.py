@@ -68,7 +68,7 @@ class ProposalLayer(caffe.Layer):
         try:
             cfg[cfg_key]
         except:
-            cfg_key = 'TRAIN' if self.phase == 0 else 'TEST'
+            cfg_key = 'TRAIN' if self.phase == '0' else 'TEST'
 
         pre_nms_topN  = cfg[cfg_key].RPN_PRE_NMS_TOP_N
         post_nms_topN = cfg[cfg_key].RPN_POST_NMS_TOP_N
