@@ -33,6 +33,16 @@ cfg = __C
 
 __C.TRAIN = edict()
 
+
+
+####OPTION: LSUV INIT ####
+
+
+__C.TRAIN.LSUVINIT = 'LSUV' # ['Orthonormal','LSUV','OrthonormalLSUV'] else: no lsuv
+
+##########################
+
+
 # Scales to use during training (can list multiple scales)
 # Each scale is the pixel size of an image's shortest side
 __C.TRAIN.SCALES = (600,)

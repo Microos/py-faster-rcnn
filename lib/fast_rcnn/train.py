@@ -12,22 +12,119 @@ from fast_rcnn.config import cfg
 import roi_data_layer.roidb as rdl_roidb
 from utils.timer import Timer
 import numpy as np
-import os
+import os,sys
+from numpy.random import standard_normal
+from math import sqrt
 
 from caffe.proto import caffe_pb2
 import google.protobuf as pb2
+
+def svd_orthonormal(shape):
+    if len(shape) < 2:
+        raise RuntimeError("Only shapes of length 2 or more are supported.")
+    flat_shape = (shape[0], np.prod(shape[1:]))
+    a = standard_normal(flat_shape)
+    u, _, v = np.linalg.svd(a, full_matrices=False)
+    q = u if u.shape == flat_shape else v
+    q = q.reshape(shape)
+    return q
 
 class SolverWrapper(object):
     """A simple wrapper around Caffe's solver.
     This wrapper gives us control over he snapshotting process, which we
     use to unnormalize the learned bounding-box regression weights.
     """
+    def lsuv_init(self):
+        init_mode = cfg.TRAIN.LSUVINIT
+        if init_mode not in ['Orthonormal','LSUV','OrthonormalLSUV']: return
+        print '---------------{} INIT---------------'.format(init_mode)
+        lyr_names = list(self.solver.net._layer_names)
+
+        def filter_layer_type(layer_name):
+            '''True if this layer is not activation or BN layer'''
+
+            idx = lyr_names.index(layer_name)
+            assert idx >= 0, idx
+            layer = self.solver.net.layers
+            return False if (layer[idx].type == 'ReLU' or layer[idx].type == 'BatchNorm') else True
+
+        solver = self.solver
+        margin = 0.02
+        max_iter = 30 #30
+        needed_variance = 1.0
+        var_before_relu_if_inplace = True
+        for k,v in solver.net.params.iteritems():
+            #skip bn and activation
+            if not filter_layer_type(k): continue
+
+            #skip non-learnable layers
+            try:
+                print(k, v[0].data.shape)
+            except:
+                print 'Skipping layer ', k, ' as it has no parameters to initialize'
+                continue
+
+            if 'Orthonormal' in init_mode:
+                weights = svd_orthonormal(v[0].data[:].shape)
+                solver.net.params[k][0].data[:] = weights
+            else:
+                weights = solver.net.params[k][0].data[:]
+
+            if 'LSUV' in init_mode:
+                if var_before_relu_if_inplace:
+                    solver.net.forward(end=k)
+                else:
+                    solver.net.forward()
+                out_blob_name = solver.net.top_names[k]
+                assert len(out_blob_name)==1, out_blob_name
+                out_blob_name = out_blob_name[0]
+                v = solver.net.blobs[out_blob_name]
+                var1 = np.var(v.data[:])
+                mean1 = np.mean(v.data[:])
+                print k, 'var = ', var1, 'mean = ', mean1
+                sys.stdout.flush()
+                iter_num = 0
+
+                while (abs(needed_variance - var1) > margin):
+                    weights = solver.net.params[k][0].data[:]
+                    solver.net.params[k][0].data[:] = weights / sqrt(var1)
+                    if var_before_relu_if_inplace:
+                        solver.net.forward(end=k)
+                    else:
+                        solver.net.forward()
+
+                    v = solver.net.blobs[out_blob_name]
+                    var1 = np.var(v.data[:])
+                    mean1 = np.mean(v.data[:])
+                    print(k, 'var = ', var1, 'mean = ', mean1)
+                    sys.stdout.flush()
+                    iter_num +=1
+
+                    if iter_num > max_iter:
+                        print 'Could not converge in ', iter_num, ' iterations, go to next layer'
+                        break
+            print ''
+
+        print "Initialization finished!"
+        solver.net.forward()
+        for k, v in solver.net.blobs.iteritems():
+            try:
+                print(k, v.data[:].shape, ' var = ', np.var(v.data[:]), ' mean = ', np.mean(v.data[:]))
+            except:
+                print 'Skiping layer', k
+
+
+        init_save_to = '{}_{}.caffemodel'.format(self.pretrained_model.split('.caffemodel')[0], init_mode)
+        print "Saving {} init model....".format(init_mode)
+        solver.net.save(init_save_to)
+        print "Finished. Model saved to:", init_save_to
+        print '---------------{} INIT DONE---------------'.format(init_mode)
 
     def __init__(self, solver_prototxt, roidb, output_dir,
                  pretrained_model=None):
         """Initialize the SolverWrapper."""
         self.output_dir = output_dir
-
+        self.pretrained_model = pretrained_model
         if (cfg.TRAIN.HAS_RPN and cfg.TRAIN.BBOX_REG and
             cfg.TRAIN.BBOX_NORMALIZE_TARGETS):
             # RPN can only use precomputed normalization because there are no
@@ -52,6 +149,8 @@ class SolverWrapper(object):
 
         self.solver.net.layers[0].set_roidb(roidb)
 
+        self.lsuv_init()
+        print ''
     def snapshot(self):
         """Take a snapshot of the network after unnormalizing the learned
         bounding-box regression weights. This enables easy use at test-time.

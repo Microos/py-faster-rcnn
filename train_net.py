@@ -18,16 +18,16 @@ import caffe
 import argparse
 import pprint
 import numpy as np
-import sys
+import sys,os
 import logging
 
-
+print caffe.__file__
 class ARGS(object):
 
     def __init__(self, name):
-        assert name in ['VOC','WIDER'], "{} is an unknown key!".format(name)
-        self.__root = '/home/ylxie/Space/work/py-faster-rcnn/'
-        self.gpu_id = 2
+        assert name in ['LSUV'], "{} is an unknown key!".format(name)
+        self.__root = os.path.dirname(__file__)+'/'
+        self.gpu_id = 0
         self.max_iters = 70000
         self.cfg_file = self.__root+'experiments/cfgs/faster_rcnn_end2end.yml'
         self.randomize = True
@@ -37,12 +37,9 @@ class ARGS(object):
         self.setup(name)
 
     def setup(self,name):
-        if name == 'VOC':
-            self.solver = self.__root+'models/pascal_voc_ohem/VGG16/faster_rcnn_end2end/solver.prototxt'
-            self.imdb_name = 'voc_2007_trainval'
-        if name == 'WIDER':
-            self.solver = self.__root +'models/wider/VGG16/faster_rcnn_end2end/solver.prototxt'
-            self.imdb_name = 'wider_train'
+        if name == 'LSUV':
+            self.solver = self.__root +'models/lsuv/VGG16/faster_rcnn_end2end/solver.prototxt'
+            self.imdb_name = 'lsuv_train'
 
 def parse_args():
     """
@@ -101,7 +98,7 @@ def combined_roidb(imdb_names):
     return imdb, roidb
 
 if __name__ == '__main__':
-    args = ARGS('WIDER')
+    args = ARGS('LSUV')
 
     print('Called with args:')
     print(args)

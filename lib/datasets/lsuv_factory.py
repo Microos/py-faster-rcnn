@@ -1,3 +1,4 @@
+
 # --------------------------------------------------------
 # Fast R-CNN
 # Copyright (c) 2015 Microsoft
@@ -11,10 +12,11 @@ __sets = {}
 
 from datasets.pascal_voc import pascal_voc
 from datasets.coco import coco
+from datasets.lsuv import lsuv
 import numpy as np
 
+
 #Set up lsuv
-from datasets.lsuv import lsuv
 lsuv_devkit_path = '/home/ylxie/Space/work/py-faster-rcnn/data/voc_wider'
 for split in ['train', 'test']:
     name = '{}_{}'.format('lsuv', split)
