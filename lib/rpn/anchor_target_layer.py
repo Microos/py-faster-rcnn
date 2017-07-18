@@ -28,8 +28,8 @@ class AnchorTargetLayer(caffe.Layer):
             layer_params = yaml.load(self.param_str_)
         except:
             layer_params = yaml.load(self.param_str)
-        anchor_scales = layer_params.get('scales', (8, 16, 32))
-        self._anchors = generate_anchors(scales=np.array(anchor_scales))
+        anchor_scales = layer_params.get('scales', cfg.ANCHOR_SCALES)
+        self._anchors = generate_anchors(scales=np.array(anchor_scales), ratios=cfg.ANCHOR_RATIOS)
         self._num_anchors = self._anchors.shape[0]
         self._feat_stride = layer_params['feat_stride']
 

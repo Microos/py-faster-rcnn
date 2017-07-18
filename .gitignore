@@ -5,6 +5,7 @@ data/voc_wider
 data/imagenet_models
 data/cache
 *.pyc
+*.so
 .ipynb_checkpoints
 lib/build
 lib/pycocotools/_mask.c
