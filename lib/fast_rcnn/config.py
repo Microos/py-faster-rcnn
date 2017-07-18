@@ -31,6 +31,7 @@ cfg = __C
 # Training options
 #
 
+#modify in cfg file:  !!python/list [0.5, 1, 2]
 __C.ANCHOR_RATIOS = [0.5, 1, 2]
 __C.ANCHOR_SCALES = [8, 16, 32]
 
