@@ -18,7 +18,7 @@ import caffe
 import argparse
 import pprint
 import numpy as np
-import sys
+import sys,os
 import logging
 
 
@@ -26,7 +26,7 @@ class ARGS(object):
 
     def __init__(self, name):
         assert name in ['VOC','WIDER'], "{} is an unknown key!".format(name)
-        self.__root = '/home/ylxie/Space/work/py-faster-rcnn/'
+        self.__root = os.path.dirname(__file__)+'/'
         self.gpu_id = 2
         self.max_iters = 70000
         self.cfg_file = self.__root+'experiments/cfgs/faster_rcnn_end2end.yml'
