@@ -111,8 +111,8 @@ def combined_roidb(imdb_names):
 
 
 if __name__ == '__main__':
-    pretrained_model = '/home/ylxie/Space/work/py-faster-rcnn2/output/pure_model4test/train/pure_model4test_iter_200.solverstate'
-    #pretrained_model = None
+    # pretrained_model = '/home/ylxie/Space/work/py-faster-rcnn2/output/pure_model4test/train/pure_model4test_iter_200.solverstate'
+    pretrained_model = None
     args = ARGS('pure_model4test', gpu_id=2, pretrained_model=pretrained_model)
     print('Called with args:')
     print(args)
@@ -123,7 +123,7 @@ if __name__ == '__main__':
         cfg_from_list(args.set_cfgs)
     print cfg.TRAIN.BG_THRESH_LO
     cfg.GPU_ID = args.gpu_id
-    cfg.TRAIN.SNAPSHOT_ITERS = 100
+    # cfg.TRAIN.SNAPSHOT_ITERS = 100
 
     print('Using config:')
     pprint.pprint(cfg)

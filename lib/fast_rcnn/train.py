@@ -16,6 +16,7 @@ import google.protobuf as pb2
 import numpy as np
 import roi_data_layer.roidb as rdl_roidb
 from fast_rcnn.config import cfg
+from loss_saver import LossWritter
 from utils.timer import Timer
 
 
@@ -62,7 +63,8 @@ class SolverWrapper(object):
             if pretrained_model.endswith('.caffemodel'):
                 print ('Loading pretrained model '
                        'weights from {:s}').format(pretrained_model)
-                self.solver.net.copy_from(pretrained_model) #only you choose a caffemodel, you can call the method once
+                self.solver.net.copy_from(
+                    pretrained_model)  # only you choose a caffemodel, you can call the method once
             elif pretrained_model.endswith('.solverstate'):
                 print ('Loading solverstate'
                        ' from {:s}').format(pretrained_model)
@@ -70,13 +72,19 @@ class SolverWrapper(object):
                 print 'Resume training...'
                 self.last_snapshot_iter = self.solver.iter
 
-
-
         self.solver_param = caffe_pb2.SolverParameter()
         with open(solver_prototxt, 'rt') as f:
             pb2.text_format.Merge(f.read(), self.solver_param)
 
         self.solver.net.layers[0].set_roidb(roidb)
+
+        model_name = output_dir.split('/')[-2]
+        loss_list = ['rpn_cls_loss', 'rpn_loss_bbox', 'loss_cls', 'loss_bbox']
+        loss_group_dict = {'rpn_loss': [0, 1], 'fc_loss': [2, 3]}
+
+        self.solver_writter = LossWritter(self.solver, model_name=model_name,
+                                          loss_blob_name_list=loss_list,
+                                          loss_blob_group_dict=loss_group_dict)
 
     def snapshot(self):
         """Take a snapshot of the network after unnormalizing the learned
@@ -107,11 +115,11 @@ class SolverWrapper(object):
                     '_iter_{:d}'.format(self.solver.iter) + '.caffemodel')
         filename = os.path.join(self.output_dir, filename)
 
-
-        #SAVE_SOLVERSTAET:
+        # SAVE_SOLVERSTAET:
         if cfg.TRAIN.SAVE_SOLVERSTATE:
             self.solver.snapshot()
-            print 'Wrote snapshot/caffemodel to: {:s}'.format(filename.replace('.caffemodel','.{caffemodel,solverstate}'))
+            print 'Wrote snapshot/caffemodel to: {:s}'.format(
+                filename.replace('.caffemodel', '.{caffemodel,solverstate}'))
         else:
             net.save(str(filename))
             print 'Wrote caffemodel to: {:s}'.format(filename)
@@ -123,6 +131,13 @@ class SolverWrapper(object):
         return filename
 
     def train_model(self, max_iters):
+        def disp_time_info():
+            rest_time = timer.average_time * (max_iters - self.solver.iter)
+            h = rest_time / 3600
+            m = (rest_time % 3600) / 60
+            print '\nspeed: {:.3f}s / iter; {}h {}m to go; {} left'.format(timer.average_time, int(h), int(m),
+                                                                           max_iters - self.solver.iter)
+
         """Network training loop."""
         last_snapshot_iter = -1
         timer = Timer()
@@ -133,15 +148,15 @@ class SolverWrapper(object):
             self.solver.step(1)
             timer.toc()
             if self.solver.iter % (1 * self.solver_param.display) == 0:
-                rest_time = timer.average_time * (max_iters - self.solver.iter)
-                h = rest_time / 3600
-                m = (rest_time % 3600) / 60
-                print '\nspeed: {:.3f}s / iter; {}h {}m to go; {} left\n'.format(timer.average_time, int(h), int(m),
-                                                                                 max_iters - self.solver.iter)
+                disp_time_info()
+
+                self.solver_writter.log_loss()
+                print '\n'
 
             if self.solver.iter % cfg.TRAIN.SNAPSHOT_ITERS == 0:
                 last_snapshot_iter = self.solver.iter
-                model_paths.append(self.snapshot())
+                caffemodel_path = self.snapshot()
+                model_paths.append(caffemodel_path)
 
         if last_snapshot_iter != self.solver.iter:
             model_paths.append(self.snapshot())
