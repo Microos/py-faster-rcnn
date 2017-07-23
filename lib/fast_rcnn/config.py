@@ -37,6 +37,11 @@ __C.ANCHOR_SCALES = [8, 16, 32]
 
 __C.TRAIN = edict()
 
+#save solverstate for resume
+__C.TRAIN.SAVE_SOLVERSTATE = True
+
+
+
 # Scales to use during training (can list multiple scales)
 # Each scale is the pixel size of an image's shortest side
 __C.TRAIN.SCALES = (600,)

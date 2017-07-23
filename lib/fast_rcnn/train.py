@@ -8,14 +8,16 @@
 """Train a Fast R-CNN network."""
 
 import caffe
-from fast_rcnn.config import cfg
-import roi_data_layer.roidb as rdl_roidb
-from utils.timer import Timer
-import numpy as np
 import os
-
 from caffe.proto import caffe_pb2
+from tempfile import NamedTemporaryFile
+
 import google.protobuf as pb2
+import numpy as np
+import roi_data_layer.roidb as rdl_roidb
+from fast_rcnn.config import cfg
+from utils.timer import Timer
+
 
 class SolverWrapper(object):
     """A simple wrapper around Caffe's solver.
@@ -29,7 +31,7 @@ class SolverWrapper(object):
         self.output_dir = output_dir
 
         if (cfg.TRAIN.HAS_RPN and cfg.TRAIN.BBOX_REG and
-            cfg.TRAIN.BBOX_NORMALIZE_TARGETS):
+                cfg.TRAIN.BBOX_NORMALIZE_TARGETS):
             # RPN can only use precomputed normalization because there are no
             # fixed statistics to compute a priori
             assert cfg.TRAIN.BBOX_NORMALIZE_TARGETS_PRECOMPUTED
@@ -37,14 +39,38 @@ class SolverWrapper(object):
         if cfg.TRAIN.BBOX_REG:
             print 'Computing bounding-box regression targets...'
             self.bbox_means, self.bbox_stds = \
-                    rdl_roidb.add_bbox_regression_targets(roidb)
+                rdl_roidb.add_bbox_regression_targets(roidb)
             print 'done'
 
-        self.solver = caffe.SGDSolver(solver_prototxt)
+        # redirect the solver parameter: snapshot_prefix to the correct path if SAVE_SOLVERSTATE
+        if cfg.TRAIN.SAVE_SOLVERSTATE:
+            self.solver_param = caffe_pb2.SolverParameter()
+            with open(solver_prototxt, 'rt') as f:
+                pb2.text_format.Merge(f.read(), self.solver_param)
+            infix = ('_' + cfg.TRAIN.SNAPSHOT_INFIX if cfg.TRAIN.SNAPSHOT_INFIX != '' else '')
+            baseFileName = self.solver_param.snapshot_prefix + infix
+            self.solver_param.snapshot_prefix = os.path.join(self.output_dir, baseFileName)
+            print 'Solverstates will be saved to: {}'.format(os.path.dirname(self.solver_param.snapshot_prefix))
+            with NamedTemporaryFile('w', delete=False) as f:
+                f.write(pb2.text_format.MessageToString(self.solver_param))
+            self.solver = caffe.SGDSolver(f.name)  # get_solver
+            print 'Temp solver saved to: {}'.format(f.name)
+        else:
+            self.solver = caffe.SGDSolver(solver_prototxt)  # all layers from python module will be setup
+
         if pretrained_model is not None:
-            print ('Loading pretrained model '
-                   'weights from {:s}').format(pretrained_model)
-            self.solver.net.copy_from(pretrained_model)
+            if pretrained_model.endswith('.caffemodel'):
+                print ('Loading pretrained model '
+                       'weights from {:s}').format(pretrained_model)
+                self.solver.net.copy_from(pretrained_model) #only you choose a caffemodel, you can call the method once
+            elif pretrained_model.endswith('.solverstate'):
+                print ('Loading solverstate'
+                       ' from {:s}').format(pretrained_model)
+                self.solver.restore(pretrained_model)
+                print 'Resume training...'
+                self.last_snapshot_iter = self.solver.iter
+
+
 
         self.solver_param = caffe_pb2.SolverParameter()
         with open(solver_prototxt, 'rt') as f:
@@ -69,11 +95,11 @@ class SolverWrapper(object):
 
             # scale and shift with bbox reg unnormalization; then save snapshot
             net.params['bbox_pred'][0].data[...] = \
-                    (net.params['bbox_pred'][0].data *
-                     self.bbox_stds[:, np.newaxis])
+                (net.params['bbox_pred'][0].data *
+                 self.bbox_stds[:, np.newaxis])
             net.params['bbox_pred'][1].data[...] = \
-                    (net.params['bbox_pred'][1].data *
-                     self.bbox_stds + self.bbox_means)
+                (net.params['bbox_pred'][1].data *
+                 self.bbox_stds + self.bbox_means)
 
         infix = ('_' + cfg.TRAIN.SNAPSHOT_INFIX
                  if cfg.TRAIN.SNAPSHOT_INFIX != '' else '')
@@ -81,8 +107,14 @@ class SolverWrapper(object):
                     '_iter_{:d}'.format(self.solver.iter) + '.caffemodel')
         filename = os.path.join(self.output_dir, filename)
 
-        net.save(str(filename))
-        print 'Wrote snapshot to: {:s}'.format(filename)
+
+        #SAVE_SOLVERSTAET:
+        if cfg.TRAIN.SAVE_SOLVERSTATE:
+            self.solver.snapshot()
+            print 'Wrote snapshot/caffemodel to: {:s}'.format(filename.replace('.caffemodel','.{caffemodel,solverstate}'))
+        else:
+            net.save(str(filename))
+            print 'Wrote caffemodel to: {:s}'.format(filename)
 
         if scale_bbox_params:
             # restore net to original state
@@ -115,6 +147,7 @@ class SolverWrapper(object):
             model_paths.append(self.snapshot())
         return model_paths
 
+
 def get_training_roidb(imdb):
     """Returns a roidb (Region of Interest database) for use in training."""
     if cfg.TRAIN.USE_FLIPPED:
@@ -127,6 +160,7 @@ def get_training_roidb(imdb):
     print 'done'
 
     return imdb.roidb
+
 
 def filter_roidb(roidb):
     """Remove roidb entries that have no usable RoIs."""
@@ -151,6 +185,7 @@ def filter_roidb(roidb):
     print 'Filtered {} roidb entries: {} -> {}'.format(num - num_after,
                                                        num, num_after)
     return filtered_roidb
+
 
 def train_net(solver_prototxt, roidb, output_dir,
               pretrained_model=None, max_iters=40000):

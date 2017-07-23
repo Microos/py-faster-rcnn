@@ -9,40 +9,48 @@
 
 """Train a Fast R-CNN network on a region of interest database."""
 
-import tools._init_paths
-from fast_rcnn.train import get_training_roidb, train_net
-from fast_rcnn.config import cfg, cfg_from_file, cfg_from_list, get_output_dir
-from datasets.factory import get_imdb
-import datasets.imdb
-import caffe
 import argparse
+import caffe
+import os
 import pprint
+import sys
+
+import datasets.imdb
 import numpy as np
-import sys,os
-import logging
+from datasets.factory import get_imdb
+from fast_rcnn.config import cfg, cfg_from_file, cfg_from_list, get_output_dir
+from fast_rcnn.train import get_training_roidb, train_net
 
 
-class ARGS(object):
+class ARGS:
+    def check_paths(self):
+        wait_list = [self.solver, self.cfg_file, self.pretrained_model]
+        for p in wait_list:
+            assert os.path.exists(p), "Path not found: '{}'".format(p)
 
-    def __init__(self, name):
-        assert name in ['VOC','WIDER'], "{} is an unknown key!".format(name)
-        self.__root = os.path.dirname(__file__)+'/'
-        self.gpu_id = 2
-        self.max_iters = 70000
-        self.cfg_file = self.__root+'experiments/cfgs/faster_rcnn_end2end.yml'
+    def __init__(self, name, gpu_id=None, max_iters=None, pretrained_model=None):
+        '''basic args'''
+        self.__root = os.path.dirname(__file__)
+
+        '''uncertain args'''
+        self.gpu_id = 0 if gpu_id is None else gpu_id
+        self.max_iters = 70000 if max_iters is None else max_iters
+
+        '''args specified by name '''
+        self.solver = os.path.join(self.__root, 'models/{}/VGG16/faster_rcnn_end2end/solver.prototxt'.format(name))
+        self.imdb_name = '{}_train'.format(name)
+        self.cfg_file = os.path.join(self.__root, 'experiments/cfgs/{}_end2end.yml'.format(name))
+
+        '''immuatable args'''
         self.randomize = True
         self.set_cfgs = None
         self.randomize = False
-        self.pretrained_model = self.__root + 'data/imagenet_models/VGG16.v2.caffemodel'
-        self.setup(name)
+        self.pretrained_model = os.path.join(self.__root,
+                                             'data/imagenet_models/VGG16.v2.caffemodel') if pretrained_model is None else pretrained_model
 
-    def setup(self,name):
-        if name == 'VOC':
-            self.solver = self.__root+'models/pascal_voc_ohem/VGG16/faster_rcnn_end2end/solver.prototxt'
-            self.imdb_name = 'voc_2007_trainval'
-        if name == 'WIDER':
-            self.solver = self.__root +'models/wider/VGG16/faster_rcnn_end2end/solver.prototxt'
-            self.imdb_name = 'wider_train'
+        '''exsitence check'''
+        self.check_paths()
+
 
 def parse_args():
     """
@@ -81,6 +89,7 @@ def parse_args():
     args = parser.parse_args()
     return args
 
+
 def combined_roidb(imdb_names):
     def get_roidb(imdb_name):
         imdb = get_imdb(imdb_name)
@@ -100,9 +109,11 @@ def combined_roidb(imdb_names):
         imdb = get_imdb(imdb_names)
     return imdb, roidb
 
-if __name__ == '__main__':
-    args = ARGS('WIDER')
 
+if __name__ == '__main__':
+    pretrained_model = '/home/ylxie/Space/work/py-faster-rcnn2/output/pure_model4test/train/pure_model4test_iter_200.solverstate'
+    #pretrained_model = None
+    args = ARGS('pure_model4test', gpu_id=2, pretrained_model=pretrained_model)
     print('Called with args:')
     print(args)
 
@@ -112,15 +123,16 @@ if __name__ == '__main__':
         cfg_from_list(args.set_cfgs)
     print cfg.TRAIN.BG_THRESH_LO
     cfg.GPU_ID = args.gpu_id
+    cfg.TRAIN.SNAPSHOT_ITERS = 100
 
     print('Using config:')
     pprint.pprint(cfg)
 
     if not args.randomize:
         print "set random"
-        # fix the random seeds (numpy and caffe) for reproducibility
-        np.random.seed(cfg.RNG_SEED)
-        caffe.set_random_seed(cfg.RNG_SEED)
+    # fix the random seeds (numpy and caffe) for reproducibility
+    np.random.seed(cfg.RNG_SEED)
+    caffe.set_random_seed(cfg.RNG_SEED)
 
     # set up caffe
     caffe.set_mode_gpu()
