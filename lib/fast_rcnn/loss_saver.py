@@ -8,7 +8,7 @@ import numpy as np
 
 class LossWritter():
     def __init__(self, solver, model_name, loss_blob_name_list=None, loss_blob_group_dict=None, given_dir=None,
-                 disp_interval=10):
+                 over_all_loss=True, disp_interval=10):
         self.solver = solver
         self.net = solver.net
         self.loss_dir = self.make_loss_dir(model_name, given_dir)
@@ -64,6 +64,10 @@ class LossWritter():
                               "\n\tthis argument was canceled and will have no effect.".format(vi, k, v, max_len)
                         self.loss_blob_group_dict = None
                         break
+        if self.loss_blob_group_dict is not None:
+            self.loss_blob_group_dict['over_all_loss'] = range(len(self.loss_blob_name_list))
+        else:
+            self.loss_blob_group_dict = {'over_all_loss' : range(len(self.loss_blob_name_list))}
 
     def log_loss(self):
         self.log_times += 1

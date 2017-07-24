@@ -8,7 +8,7 @@
 """Train a Fast R-CNN network."""
 
 import caffe
-import os
+import os,sys
 from caffe.proto import caffe_pb2
 from tempfile import NamedTemporaryFile
 
@@ -18,6 +18,18 @@ import roi_data_layer.roidb as rdl_roidb
 from fast_rcnn.config import cfg
 from loss_saver import LossWritter
 from utils.timer import Timer
+
+if cfg.ONTHEFLY.ENABLE:
+    if os.path.exists(cfg.ONTHEFLY.NETDEF):
+        try:
+            from tools.wider_tester.onthefly_tester import OnTheFlyTester
+        except:
+            sys.stderr.write('Failed to import OnTheFlyTester, there will be no on-the-fly test.')
+            sys.stderr.flush()
+            cfg.TRAIN.ONTHEFLY_TEST = False
+    else:
+        print 'Your cfg.ONTHEFLY.NETDEF:{} does not exist, there will be no on-the-fly test.'.format(cfg.ONTHEFLY.NETDEF)
+
 
 
 class SolverWrapper(object):
@@ -79,12 +91,22 @@ class SolverWrapper(object):
         self.solver.net.layers[0].set_roidb(roidb)
 
         model_name = output_dir.split('/')[-2]
+
+        '''loss writter init'''
         loss_list = ['rpn_cls_loss', 'rpn_loss_bbox', 'loss_cls', 'loss_bbox']
         loss_group_dict = {'rpn_loss': [0, 1], 'fc_loss': [2, 3]}
+        self.loss_writter = LossWritter(self.solver, model_name=model_name,
+                                        loss_blob_name_list=loss_list,
+                                        loss_blob_group_dict=loss_group_dict)
 
-        self.solver_writter = LossWritter(self.solver, model_name=model_name,
-                                          loss_blob_name_list=loss_list,
-                                          loss_blob_group_dict=loss_group_dict)
+        '''on-the-fly tester init'''
+        if cfg.ONTHEFLY.ENABLE:
+            self.otf_tester = OnTheFlyTester(netdef=cfg.ONTHEFLY.NETDEF,
+                                             cfmodel_output_dir= output_dir,
+                                             model_name=model_name,
+                                             save_dir=cfg.ONTHEFLY.OUTPUT_DIR,
+                                             baseline_aps=None)
+
 
     def snapshot(self):
         """Take a snapshot of the network after unnormalizing the learned
@@ -150,13 +172,17 @@ class SolverWrapper(object):
             if self.solver.iter % (1 * self.solver_param.display) == 0:
                 disp_time_info()
 
-                self.solver_writter.log_loss()
+                self.loss_writter.log_loss()
                 print '\n'
 
             if self.solver.iter % cfg.TRAIN.SNAPSHOT_ITERS == 0:
                 last_snapshot_iter = self.solver.iter
                 caffemodel_path = self.snapshot()
                 model_paths.append(caffemodel_path)
+
+                '''invoke on-the-fly testing after every snapshot'''
+                if cfg.ONTHEFLY.ENABLE:
+                    self.otf_tester.test()
 
         if last_snapshot_iter != self.solver.iter:
             model_paths.append(self.snapshot())
