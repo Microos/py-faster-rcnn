@@ -23,3 +23,7 @@ add_path(caffe_path)
 # Add lib to PYTHONPATH
 lib_path = osp.join(this_dir, '..', 'lib')
 add_path(lib_path)
+
+# By Rick, add tool to PYTHONPATH
+tools_path = osp.join(this_dir, 'tools')
+add_path(tools_path)

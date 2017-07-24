@@ -30,16 +30,22 @@ cfg = __C
 #
 # Training options
 #
-
+this_dir = os.path.dirname(__file__)
 #modify in cfg file:  !!python/list [0.5, 1, 2]
 __C.ANCHOR_RATIOS = [0.5, 1, 2]
 __C.ANCHOR_SCALES = [8, 16, 32]
+
+
+#On the fly testing
+__C.ONTHEFLY = edict()
+__C.ONTHEFLY.ENABLE=False
+__C.ONTHEFLY.NETDEF = None
+__C.ONTHEFLY.OUTPUT_DIR = os.path.join(this_dir, '../../experiments/otftests')
 
 __C.TRAIN = edict()
 
 #save solverstate for resume
 __C.TRAIN.SAVE_SOLVERSTATE = True
-
 
 
 # Scales to use during training (can list multiple scales)
