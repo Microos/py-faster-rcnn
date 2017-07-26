@@ -8,27 +8,31 @@
 """Train a Fast R-CNN network."""
 
 import caffe
-import os,sys
+import os
+import sys
 from caffe.proto import caffe_pb2
 from tempfile import NamedTemporaryFile
+from traceback import print_exc
 
 import google.protobuf as pb2
 import numpy as np
 import roi_data_layer.roidb as rdl_roidb
 from fast_rcnn.config import cfg
-from loss_saver import LossWritter
+from mytools.loss_saver import LossWritter
 from utils.timer import Timer
 
-if cfg.ONTHEFLY.ENABLE:
-    if os.path.exists(cfg.ONTHEFLY.NETDEF):
-        try:
-            from tools.wider_tester.onthefly_tester import OnTheFlyTester
-        except:
-            sys.stderr.write('Failed to import OnTheFlyTester, there will be no on-the-fly test.')
-            sys.stderr.flush()
-            cfg.TRAIN.ONTHEFLY_TEST = False
-    else:
-        print 'Your cfg.ONTHEFLY.NETDEF:{} does not exist, there will be no on-the-fly test.'.format(cfg.ONTHEFLY.NETDEF)
+IMPORT_OTF_SUCCESS = False
+
+try:
+    from mytools.wider_tester.onthefly_tester import OnTheFlyTester
+    IMPORT_OTF_SUCCESS= True
+except:
+    print_exc()
+    sys.stderr.write('Failed to import OnTheFlyTester, there will be no on-the-fly test.')
+    sys.stderr.flush()
+
+
+
 
 
 
@@ -100,13 +104,15 @@ class SolverWrapper(object):
                                         loss_blob_group_dict=loss_group_dict)
 
         '''on-the-fly tester init'''
-        if cfg.ONTHEFLY.ENABLE:
+        if cfg.ONTHEFLY.ENABLE and IMPORT_OTF_SUCCESS:
             self.otf_tester = OnTheFlyTester(netdef=cfg.ONTHEFLY.NETDEF,
                                              cfmodel_output_dir= output_dir,
                                              model_name=model_name,
                                              save_dir=cfg.ONTHEFLY.OUTPUT_DIR,
                                              baseline_aps=None)
-
+            print "OnTheFly Tester is Enabled."
+        else:
+            print "OnTheFly Tester is Disabled."
 
     def snapshot(self):
         """Take a snapshot of the network after unnormalizing the learned
@@ -140,11 +146,10 @@ class SolverWrapper(object):
         # SAVE_SOLVERSTAET:
         if cfg.TRAIN.SAVE_SOLVERSTATE:
             self.solver.snapshot()
-            print 'Wrote snapshot/caffemodel to: {:s}'.format(
-                filename.replace('.caffemodel', '.{caffemodel,solverstate}'))
+            print 'Wrote snapshot to: {:s}'.format(filename)
         else:
             net.save(str(filename))
-            print 'Wrote caffemodel to: {:s}'.format(filename)
+            print 'Wrote snapshot to: {:s}'.format(filename)
 
         if scale_bbox_params:
             # restore net to original state
@@ -181,8 +186,8 @@ class SolverWrapper(object):
                 model_paths.append(caffemodel_path)
 
                 '''invoke on-the-fly testing after every snapshot'''
-                if cfg.ONTHEFLY.ENABLE:
-                    self.otf_tester.test()
+                if cfg.ONTHEFLY.ENABLE and IMPORT_OTF_SUCCESS:
+                    self.otf_tester.test(cfg.GPU_ID)
 
         if last_snapshot_iter != self.solver.iter:
             model_paths.append(self.snapshot())
