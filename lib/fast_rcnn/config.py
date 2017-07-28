@@ -40,7 +40,8 @@ __C.ANCHOR_SCALES = [8, 16, 32]
 __C.ONTHEFLY = edict()
 __C.ONTHEFLY.ENABLE=False
 __C.ONTHEFLY.NETDEF = ''
-__C.ONTHEFLY.OUTPUT_DIR = os.path.join(this_dir, '../../experiments/otftests')
+__C.ONTHEFLY.OUTPUT_DIR = os.path.realpath(os.path.join(this_dir, '../../experiments/otftests'))
+__C.ONTHEFLY.DIRNAME = ''
 
 __C.TRAIN = edict()
 

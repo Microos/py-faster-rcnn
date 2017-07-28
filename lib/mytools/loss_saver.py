@@ -32,6 +32,7 @@ class LossWritter():
 
         if use_default_dir:
             loss_dir = os.path.join(os.path.dirname(__file__), '../..', 'experiments', 'logs', model_dir_name)
+            loss_dir = os.path.realpath(loss_dir)
         else:
             loss_dir = os.path.join(given_dir, model_dir_name)
 

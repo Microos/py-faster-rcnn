@@ -109,10 +109,18 @@ class SolverWrapper(object):
                                              cfmodel_output_dir= output_dir,
                                              model_name=model_name,
                                              save_dir=cfg.ONTHEFLY.OUTPUT_DIR,
+                                             content_dirname = cfg.ONTHEFLY.DIRNAME if cfg.ONTHEFLY.DIRNAME is not '' else  None,
                                              baseline_aps=None)
+
             print "OnTheFly Tester is Enabled."
         else:
             print "OnTheFly Tester is Disabled."
+
+        if (pretrained_model.endswith('.solverstate') and
+            cfg.ONTHEFLY.ENABLE and IMPORT_OTF_SUCCESS and
+                        cfg.ONTHEFLY.DIRNAME is not ''):
+            self.otf_tester.test(cfg.GPU_ID)
+
 
     def snapshot(self):
         """Take a snapshot of the network after unnormalizing the learned
@@ -146,10 +154,11 @@ class SolverWrapper(object):
         # SAVE_SOLVERSTAET:
         if cfg.TRAIN.SAVE_SOLVERSTATE:
             self.solver.snapshot()
-            print 'Wrote snapshot to: {:s}'.format(filename)
+
         else:
             net.save(str(filename))
-            print 'Wrote snapshot to: {:s}'.format(filename)
+
+        print 'Wrote snapshot to: {:s}'.format(filename)
 
         if scale_bbox_params:
             # restore net to original state
@@ -173,6 +182,14 @@ class SolverWrapper(object):
             # Make one SGD update
             timer.tic()
             self.solver.step(1)
+
+            loss_list = ['rpn_cls_loss', 'rpn_loss_bbox', 'loss_cls', 'loss_bbox']
+            for l in loss_list:
+                v = self.solver.net.blobs[l].data
+                assert  v >0, 'name: {}, value: {}'.format(l, str(v))
+
+
+
             timer.toc()
             if self.solver.iter % (1 * self.solver_param.display) == 0:
                 disp_time_info()
