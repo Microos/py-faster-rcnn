@@ -197,3 +197,4 @@ class BlobFetcher(Process):
             minibatch_db = [self._roidb[i] for i in db_inds]
             blobs = get_minibatch(minibatch_db, self._num_classes)
             self._queue.put(blobs)
+

@@ -12,6 +12,7 @@ from fast_rcnn.config import cfg
 from generate_anchors import generate_anchors
 from fast_rcnn.bbox_transform import bbox_transform_inv, clip_boxes
 from fast_rcnn.nms_wrapper import nms
+from utils.cython_bbox import bbox_overlaps
 
 DEBUG = False
 
@@ -46,6 +47,8 @@ class ProposalLayer(caffe.Layer):
         # scores blob: holds scores for R regions of interest
         if len(top) > 1:
             top[1].reshape(1, 1, 1, 1)
+
+
 
     def forward(self, bottom, top):
         # Algorithm:

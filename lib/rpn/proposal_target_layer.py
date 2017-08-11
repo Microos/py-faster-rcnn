@@ -25,7 +25,7 @@ class ProposalTargetLayer(caffe.Layer):
         try:
             layer_params = yaml.load(self.param_str_)
         except:
-			layer_params = yaml.load(self.param_str)
+            layer_params = yaml.load(self.param_str)
         self._num_classes = layer_params['num_classes']
 
         # sampled rois (0, x1, y1, x2, y2)
@@ -64,8 +64,21 @@ class ProposalTargetLayer(caffe.Layer):
 
         # Sample rois with classification labels and bounding box regression
         # targets
+
+        overlaps = bbox_overlaps(
+            np.ascontiguousarray(all_rois[:, 1:5], dtype=np.float),
+            np.ascontiguousarray(gt_boxes[:, :4], dtype=np.float))
+
+        if DEBUG:
+            gt_bbox = gt_boxes[:, :4]
+            pps_bbox = all_rois[:, 1:5]
+            gt_bbox_info_str = _get_gt_bbox_info(gt_bbox)
+            print gt_bbox_info_str
+            rc_info_str = _get_proposal_recall_info(gt_bbox, pps_bbox, overlaps)
+            print rc_info_str
+
         labels, rois, bbox_targets, bbox_inside_weights = _sample_rois(
-            all_rois, gt_boxes, fg_rois_per_image,
+            all_rois, gt_boxes, overlaps, fg_rois_per_image,
             rois_per_image, self._num_classes)
 
         if DEBUG:
@@ -106,6 +119,68 @@ class ProposalTargetLayer(caffe.Layer):
         """Reshaping happens during the call to forward."""
         pass
 
+def _get_gt_bbox_info(gt_bbox):
+    shp_gt = gt_bbox.shape
+    n_gt = shp_gt[0]
+    # bbox.area: min,mean,max
+    wh = np.zeros(shape=(n_gt, 2))
+    wh[:, 0] = gt_bbox[:, 2] - gt_bbox[:, 0]
+    wh[:, 1] = gt_bbox[:, 3] - gt_bbox[:, 1]
+
+    area = wh[:, 0] * wh[:, 1]
+    _min_ = area.min()
+    _max_ = area.max()
+    _mean_ = area.mean()
+
+    info = 'num_gt:{}; gt_area: min: {:.2f}, max: {:.2f}, mean: {:.2f}'.format(n_gt, _min_, _max_, _mean_)
+    return info
+
+def _get_proposal_recall_info(gt_bbox, pps_bbox, overlaps):
+    # Calculate recall in ROC fashion
+    # @ gt_bbox: n*4 (xmin,ymin,xmax,ymax)
+    # @ pps_bbox: n*4 (xmin,ymin,xmax,ymax)
+    # @ overlaps: e.g. [5900,20]
+
+    shp_gt = gt_bbox.shape
+    shp_pps = pps_bbox.shape
+    n_gt = shp_gt[0]
+
+
+    def recall_with_threas(thres):
+        #recall_rate
+        max_overlaps = overlaps.max(axis=0) #I am a box, I have the max overlaps
+        recall_num = len(np.where(max_overlaps>thres)[0])
+        recall_rate = recall_num/float(n_gt)
+
+        #recall_specified
+        idx = np.where(overlaps>thres)
+        idx = np.vstack(idx).T
+        box_specified_recall_num = np.zeros(shape=(shp_gt))
+        used_pps_list = []
+        for i in range(shp_pps):
+            ppidx, gtidx = idx[i,:]
+            if ppidx not in used_pps_list:
+                used_pps_list.append(ppidx)
+                box_specified_recall_num[gtidx]+=1
+
+        return recall_rate, box_specified_recall_num
+    info_str = '\n'
+    info_str_template = '[t:{}] recall_rate: {:.3f}' \
+                        '\n\teach_gt.fg_pps_num: min:{:.2f}, max:{:.2f}, mean:{:.2f}\n'
+    thresholds = [0.1,0.3,0.5,0.7,0.9]
+    for th in thresholds:
+        rc_rate, b_sp_rc_num = recall_with_threas(th)
+        idx = np.where(b_sp_rc_num > 0)[0]
+        if len(idx) == 0:
+            info_str += info_str_template.format(th,rc_rate,0,0,0)
+        else:
+            b_sp_rc_num = b_sp_rc_num[idx]
+            _min_ = np.min(b_sp_rc_num)
+            _max_ = np.max(b_sp_rc_num)
+            _mean_ = np.mean(b_sp_rc_num)
+            info_str += info_str_template.format(th,rc_rate,_min_,_max_,_mean_)
+
+    return info_str
 
 def _get_bbox_regression_labels(bbox_target_data, num_classes):
     """Bounding-box regression targets (bbox_target_data) are stored in a
@@ -125,7 +200,7 @@ def _get_bbox_regression_labels(bbox_target_data, num_classes):
     inds = np.where(clss > 0)[0]
     for ind in inds:
         ins = ind.astype(np.int)
-        cls = clss[ind]
+        cls = int(clss[ind])
         start = 4 * cls
         end = start + 4
         bbox_targets[ind, start:end] = bbox_target_data[ind.astype(int), 1:]
@@ -148,14 +223,12 @@ def _compute_targets(ex_rois, gt_rois, labels):
     return np.hstack(
             (labels[:, np.newaxis], targets)).astype(np.float32, copy=False)
 
-def _sample_rois(all_rois, gt_boxes, fg_rois_per_image, rois_per_image, num_classes):
+def _sample_rois(all_rois, gt_boxes, overlaps, fg_rois_per_image, rois_per_image, num_classes):
     """Generate a random sample of RoIs comprising foreground and background
     examples.
     """
     # overlaps: (rois x gt_boxes)
-    overlaps = bbox_overlaps(
-        np.ascontiguousarray(all_rois[:, 1:5], dtype=np.float),
-        np.ascontiguousarray(gt_boxes[:, :4], dtype=np.float))
+
     gt_assignment = overlaps.argmax(axis=1)
     max_overlaps = overlaps.max(axis=1)
     labels = gt_boxes[gt_assignment, 4]
@@ -164,7 +237,7 @@ def _sample_rois(all_rois, gt_boxes, fg_rois_per_image, rois_per_image, num_clas
     fg_inds = np.where(max_overlaps >= cfg.TRAIN.FG_THRESH)[0]
     # Guard against the case when an image has fewer than fg_rois_per_image
     # foreground RoIs
-    fg_rois_per_this_image = min(fg_rois_per_image, fg_inds.size)
+    fg_rois_per_this_image = int(min(fg_rois_per_image, fg_inds.size))
     # Sample foreground regions without replacement
     if fg_inds.size > 0:
         fg_inds = npr.choice(fg_inds, size=fg_rois_per_this_image, replace=False)
@@ -175,7 +248,7 @@ def _sample_rois(all_rois, gt_boxes, fg_rois_per_image, rois_per_image, num_clas
     # Compute number of background RoIs to take from this image (guarding
     # against there being fewer than desired)
     bg_rois_per_this_image = rois_per_image - fg_rois_per_this_image
-    bg_rois_per_this_image = min(bg_rois_per_this_image, bg_inds.size)
+    bg_rois_per_this_image = int(min(bg_rois_per_this_image, bg_inds.size))
     # Sample background regions without replacement
     if bg_inds.size > 0:
         bg_inds = npr.choice(bg_inds, size=bg_rois_per_this_image, replace=False)

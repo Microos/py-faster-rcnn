@@ -14,7 +14,7 @@ import caffe
 import os
 import pprint
 import sys
-
+import tools._init_paths
 import datasets.imdb
 import numpy as np
 from datasets.factory import get_imdb
@@ -35,6 +35,8 @@ class ARGS:
         '''uncertain args'''
         self.gpu_id = 0 if gpu_id is None else gpu_id
         self.max_iters = 70000 if max_iters is None else max_iters
+        self.pretrained_model = os.path.join(self.__root,
+                                             'data/imagenet_models/VGG16.v2.caffemodel') if pretrained_model is None else pretrained_model
 
         '''args specified by name '''
         self.solver = os.path.join(self.__root, 'models/{}/VGG16/faster_rcnn_end2end/solver.prototxt'.format(name))
@@ -45,8 +47,6 @@ class ARGS:
         self.randomize = True
         self.set_cfgs = None
         self.randomize = False
-        self.pretrained_model = os.path.join(self.__root,
-                                             'data/imagenet_models/VGG16.v2.caffemodel') if pretrained_model is None else pretrained_model
 
         '''exsitence check'''
         self.check_paths()
@@ -111,9 +111,9 @@ def combined_roidb(imdb_names):
 
 
 if __name__ == '__main__':
-    # pretrained_model = '/home/ylxie/Space/work/py-faster-rcnn2/output/pure_model4test/train/pure_model4test_iter_200.solverstate'
-    pretrained_model = None
-    args = ARGS('pure_model4test', gpu_id=0, pretrained_model=pretrained_model)
+    pretrained_model = '/home/ylxie/Space/work/py-faster-rcnn2/output/pls45/train/pls45_iter_10000.solverstate'
+    #pretrained_model = None
+    args = ARGS('pls45', gpu_id=0, pretrained_model=pretrained_model)
 
 
 

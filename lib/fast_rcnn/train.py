@@ -20,6 +20,7 @@ import roi_data_layer.roidb as rdl_roidb
 from fast_rcnn.config import cfg
 from mytools.loss_saver import LossWritter
 from utils.timer import Timer
+import time
 
 IMPORT_OTF_SUCCESS = False
 
@@ -111,15 +112,12 @@ class SolverWrapper(object):
                                              save_dir=cfg.ONTHEFLY.OUTPUT_DIR,
                                              content_dirname = cfg.ONTHEFLY.DIRNAME if cfg.ONTHEFLY.DIRNAME is not '' else  None,
                                              baseline_aps=None)
+            self.otf_tester.test(cfg.GPU_ID)
 
             print "OnTheFly Tester is Enabled."
         else:
             print "OnTheFly Tester is Disabled."
-
-        if (pretrained_model.endswith('.solverstate') and
-            cfg.ONTHEFLY.ENABLE and IMPORT_OTF_SUCCESS and
-                        cfg.ONTHEFLY.DIRNAME is not ''):
-            self.otf_tester.test(cfg.GPU_ID)
+        time.sleep(1) #give time to read info.
 
 
     def snapshot(self):

@@ -44,13 +44,13 @@ class OnTheFlyTester:
 
     def find_iter_cfmodels(self):
         tmp_dict = {}
-        for r, dirs, files in os.walk(self.cfmodel_output_dir):
-            for f in files:
-                if not f.endswith('.caffemodel'): continue
-                iter = int(f.split('.')[0].split('_')[-1])
-                model_path = os.path.join(r, f)
-                if iter not in self.done_dict.keys():
-                    tmp_dict[iter] = model_path
+
+        for f in os.listdir(self.cfmodel_output_dir):
+            if not f.endswith('.caffemodel'): continue
+            iter = int(f.split('.')[0].split('_')[-1])
+            model_path = os.path.join(self.cfmodel_output_dir, f)
+            if iter not in self.done_dict.keys():
+                tmp_dict[iter] = model_path
 
         for k in sorted(tmp_dict.keys()):
             self.wait_dict[k] = tmp_dict[k]
@@ -68,8 +68,14 @@ class OnTheFlyTester:
 
             if os.path.exists(preferable_save_dir):
                 #check if it is empty
-                rt, ds, fs = os.walk(preferable_save_dir)
-                use_backup = True if len(ds) + len(fs) == 0 else False
+                ds_num = 0
+                fs_num = 0
+
+                G = os.walk(preferable_save_dir)
+                for r,ds,fs in G:
+                    ds_num += len(ds)
+                    fs_num += len(ds)
+                use_backup = False if ds_num+ fs_num == 0 else True
             else:
                 use_backup = False
 
@@ -81,6 +87,9 @@ class OnTheFlyTester:
             # check the content_dirname, and try to find done works
             self.save_dir = os.path.join(self.save_dir, self.content_dirname)
             self.save_dir = os.path.realpath(self.save_dir)
+            if not os.path.exists(self.save_dir):
+                os.makedirs(self.save_dir)
+                return
             all_txt = os.path.realpath(os.path.join(self.save_dir, '{}_results_all.txt'.format(self.model_name)))
 
             assert os.path.exists(self.save_dir), '\n{} not found, check args::content_dirname.'.format(self.save_dir)
@@ -140,6 +149,7 @@ class OnTheFlyTester:
         self.multithread_test_func(old_gpu_id)
     def multithread_test_func(self, old_gpu_id):
         try:
+            self.find_iter_cfmodels()
             self.__do_test()
             self.__write_results()
             self.__plot_fig()
@@ -150,9 +160,9 @@ class OnTheFlyTester:
         set_gpu_id(old_gpu_id)
 
     def __do_test(self):
-        self.find_iter_cfmodels()
+
         if len(self.wait_dict.keys()) == 0:
-            print '[No new models found in {}, abort.'.format(self.cfmodel_output_dir)
+            print '[No new models found in {}, skip test.'.format(self.cfmodel_output_dir)
             return
 
         gpuid = find_avaiable_gpuid(require_memo=2200, gpuid_map={0: 1, 1: 0})
@@ -182,7 +192,8 @@ class OnTheFlyTester:
         self.results = self.sort_dict_by_key(self.results)
 
     def __plot_fig(self):
-
+        if len(self.done_dict.keys()) == 0:
+            return
         fig = figure(figsize=(10, 10))
         x = self.results.keys()
 
@@ -227,6 +238,8 @@ class OnTheFlyTester:
         # show()
 
     def __write_results(self):
+        if len(self.done_dict.keys()) == 0:
+            return
         txtfile = os.path.join(self.save_dir, '{}_results_all.txt'.format(self.model_name))
         s = ''
         for k, v in self.results.iteritems():
@@ -241,15 +254,15 @@ class OnTheFlyTester:
 # print aps
 
 if __name__ == '__main__':
-    model_name = 'snsc_fuse345_v2'
+    model_name = 'sn_pls345'
     netdef = '/home/ylxie/Space/work/py-faster-rcnn2/models/{}/VGG16/faster_rcnn_end2end/test.prototxt'.format(
         model_name)
     save_dir = '/home/ylxie/Desktop/otf_tester'
     cfmodel_output_dir = '/home/ylxie/Space/work/py-faster-rcnn2/output/{}/train/'.format(model_name)
-    content_dirname = 'snsc_fuse345_v2#2017-07-27-07:15:11'
+    content_dirname = None
     t = OnTheFlyTester(netdef=netdef, save_dir=save_dir, cfmodel_output_dir=cfmodel_output_dir,
                    model_name=model_name, content_dirname=content_dirname)
-    t.test()
+    t.test(0)
 
 
 

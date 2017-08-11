@@ -19,8 +19,7 @@ class LossWritter():
         self.log_times = 0
 
     def make_loss_dir(self, model_name, given_dir):
-        time_now = strftime("%Y-%m-%d-%H:%M:%S", gmtime())
-        model_dir_name = '{}#{}'.format(model_name, time_now)
+
 
         if given_dir is None:
             use_default_dir = True
@@ -31,10 +30,26 @@ class LossWritter():
                 use_default_dir = True
 
         if use_default_dir:
-            loss_dir = os.path.join(os.path.dirname(__file__), '../..', 'experiments', 'logs', model_dir_name)
-            loss_dir = os.path.realpath(loss_dir)
+            this_dir = os.path.dirname(__file__)
+            time_now = strftime("%Y-%m-%d-%H:%M:%S", gmtime())
+            model_dir_name_with_time = '{}#{}'.format(model_name, time_now)
+            model_dir_path_with_time = os.path.realpath(os.path.join(this_dir, '../..', 'experiments', 'logs',model_dir_name_with_time))
+            model_dir_path_wo_time = os.path.realpath(os.path.join(this_dir, '../..', 'experiments', 'logs',model_name))
+            if not os.path.exists(model_dir_path_wo_time):
+                with_time = False
+            else: #already existed
+                if len(os.listdir(model_dir_path_wo_time)) == 0:
+                    with_time = False
+                else:
+                    with_time = True
+
+            loss_dir = model_dir_path_with_time if with_time else model_dir_path_wo_time
+
         else:
-            loss_dir = os.path.join(given_dir, model_dir_name)
+            loss_dir = os.path.join(given_dir, model_name)
+
+        if os.path.exists(loss_dir):
+            return loss_dir
 
         try:
             os.makedirs(loss_dir)
