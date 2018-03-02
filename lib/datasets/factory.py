@@ -13,6 +13,12 @@ from datasets.pascal_voc import pascal_voc
 from datasets.coco import coco
 import numpy as np
 
+#Set up cps
+from datasets.cps import cps
+cps_devkit_path = '/home/ylxie/Space/work/faster-rcnn/data/citypersons_devkit'
+for split in ['train', 'test']:
+    name = '{}_{}'.format('cps', split)
+    __sets[name] = (lambda split=split: cps(split, cps_devkit_path))
 
 
 # Set up voc_<year>_<split> using selective search "fast" mode

@@ -13,7 +13,7 @@ import sys
 from caffe.proto import caffe_pb2
 from tempfile import NamedTemporaryFile
 from traceback import print_exc
-
+import google.protobuf.text_format
 import google.protobuf as pb2
 import numpy as np
 import roi_data_layer.roidb as rdl_roidb
